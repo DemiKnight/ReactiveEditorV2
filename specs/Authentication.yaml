@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: Reactive Editor
+  description: Reactive Editor
+  version: 0.0.1
+servers:
+  - url: 'https://reactiveEditor.dev'
+paths:
+  /auth:
+    post:
+      summary: 'Create session from Username & Password'
+      responses:
+        200:
+          description: 'Login'
+    delete:
+        summary: 'Logout of session'
+        responses:
+          201:
+            description: 'Lo'
