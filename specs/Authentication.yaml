@@ -10,21 +10,131 @@ paths:
     post:
       summary: 'Create session from Username & Password'
       security: [ ]
+      requestBody:
+        $ref: '#/components/requestBodies/LoginRequest'
       responses:
         200:
-          description: 'Logged in successfully'
+          $ref: '#/components/responses/LoggedInSuccessfullyResponse'
+        401:
+          description: 'Login failed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginError'
+        412:
+          description: 'Requires 2FA code to login'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Requires2FAError'
     delete:
       summary: 'Logout of session'
       responses:
         204:
           description: 'Removed/logged out of session'
-    put:
-      summary: 'Attempt to refresh current session'
-      responses:
-        '200':
-            description: 'Successfully refresh token'
-
+        401:
+          $ref: '#/components/responses/NotAuthenticatedResponse'
 components:
+  schemas:
+    UnauthenticatedError:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+          enum: ['Not Authenticated']
+    JsonInvalidError:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: array
+          minItems: 1
+          items:
+            - type: object
+              properties:
+                field:
+                  type: string
+                error:
+                  type: string
+    LoginError:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+          enum: ['Username or password incorrect']
+    Requires2FAError:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+          enum: ['Requires 2FA']
+#
+    Account:
+      type: object
+      properties:
+        username:
+          type: string
+          minimum: 2
+          maximum: 32
+        uuid:
+          type: string
+          format: uuid
+
+    LoggedIn:
+      type: object
+      properties:
+        token:
+          type: string
+          format: jwt
+        account:
+          $ref: '#/components/schemas/Account'
+
+  requestBodies:
+    LoginRequest:
+      description: 'Login with username & password'
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              username:
+                type: string
+                maximum: 32
+                minimum: 2
+                example: 'TestUser1'
+              password:
+                type: string
+                format: password
+                minimum: 8
+                example: 'Exhsojc28*s!'
+  responses:
+    NotAuthenticatedResponse:
+      description: 'Session used is invalid or not authenticated'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UnauthenticatedError'
+    InvalidJsonResponse:
+      description: 'Json wan not valid'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/JsonInvalidError'
+    LoggedInSuccessfullyResponse:
+      summary: 'Logged in successfully'
+      description: 'Using credentials & information from client, return JWT.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoggedIn'
   securitySchemes:
     BearerJWT:
       type: 'http'
