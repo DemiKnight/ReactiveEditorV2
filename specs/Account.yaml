@@ -18,9 +18,25 @@ paths:
   /account/{id}:
     get:
       summary: 'Retrieve account'
+      parameters:
+        - name: 'id'
+          in: 'path'
+          description: 'Identifier of account'
+          required: true
+          schema:
+            anyOf:
+              - type: string
+                format: uuid
+              - type: integer
+                minimum: 0
       responses:
         200:
-          description: 'Return account from id'
+          $ref: '#/components/responses/AccountRetrieval'
+        404:
+          description: 'Account not found'
+        401:
+          description: 'No access'
+
     patch:
       summary: 'Update account properties'
       operationId: updateAccountProperties
@@ -36,8 +52,8 @@ paths:
               - type: integer
                 minimum: 0
       responses:
-        '200':
-          description: ''
+        200:
+          $ref: '#/components/responses/AccountRetrieval'
     delete:
       summary: 'Delete/remove account'
       operationId: deleteAccount
@@ -57,6 +73,18 @@ paths:
                 minimum: 0
 components:
   schemas:
+    AvatarLocation:
+      type: object
+      properties:
+        isDefault:
+          type: boolean
+          default: true
+        iconURL:
+          nullable: true
+          type: string
+          format: url
+          default: null
+
     Account:
       description: 'Regular Account'
       type: object
@@ -69,8 +97,15 @@ components:
         email:
           type: string
           format: email
-        tenant:
+        avatar:
+          $ref: '#components/schemas/AvatarLocation'
+        UserType:
+          description: 'To be a Tutor, must be invited made by an admin'
           type: string
+          default: 'Student'
+          enum:
+            - 'Student'
+            - 'Tutor'
 
   requestBodies:
     CreateAccount:
@@ -86,10 +121,23 @@ components:
               password:
                 type: string
                 format: password
+                minimum: 8
+                maximum: 255
               username:
                 type: string
+                maximum: 32
+                minimum: 2
 
   responses:
+    AccountRetrieval:
+      description: 'Retrieve latest version of an account.'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              account:
+                $ref: '#/components/schemas/Account'
     CreatedAccount:
       description: 'Created account & session'
       content:
