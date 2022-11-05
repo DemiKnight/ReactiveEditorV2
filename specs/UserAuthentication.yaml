@@ -1,0 +1,244 @@
+openapi: 3.0.3
+info:
+  title: User Authentication
+  description: User Authentication
+  version: 0.0.2
+servers:
+  - url: 'http://localhost:8080/api/v1'
+paths:
+  /auth:
+    post:
+      summary: 'Create session using username & password'
+      operationId: sessionLogin
+      security: [ ]
+      requestBody:
+        $ref:  '#/components/requestBodies/LoginRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessfulLogin'
+        '403':
+          $ref: '#/components/responses/LoginNotSuccessful'
+        '412':
+          $ref: '#/components/responses/CredentialsNotValid'
+    delete:
+      summary: 'Logout of all sessions'
+      operationId: sessionLogout
+      responses:
+        '204':
+          description: 'Successfully logged out'
+        '401':
+          $ref: '#/components/responses/UnauthorisedRequestError'
+  /auth/amnesia:
+    post:
+      summary: 'Request password reset for user'
+      operationId: triggerAuthPasswordReset
+      security: [ ]
+      requestBody:
+        $ref: '#/components/requestBodies/ResetPasswordRequest'
+      responses:
+        '202':
+          description: 'Accepted by server, if a user exists, they will receive an email. Note, we can not say whether the user exists.'
+  /auth/amnesia/{key}:
+    post:
+      summary: "Reset a user's password"
+      operationId: resetAuthPassword
+      security: [ ]
+      parameters:
+        - in: 'path'
+          name: 'key'
+          description: 'The reset code, given in user email'
+          required: true
+          schema:
+            $ref: '#/components/schemas/PasswordResetCodeType'
+      requestBody:
+        $ref: '#/components/requestBodies/SetPasswordRequest'
+      responses:
+        200:
+          $ref: '#/components/responses/SuccessfulResetPassword'
+
+externalDocs:
+  description: 'Written docs explaining the authentication flow'
+  url: 'https://github.com/DemiKnight/NightCrawler/blob/main/docs/Authentication.md'
+
+components:
+  schemas:
+    PasswordType:
+      type: string
+      minimum: 8
+      maximum: 255
+      format: byte # Base64 encode characters
+      example: 'IWV4OzFzeGkya2Ez' # Means '!ex;1sxi2ka3'
+
+    PasswordResetCodeType:
+      type: string
+      format: byte
+      minLength: 255
+      maxLength: 255
+      example: 'UkN5VEhaSzVkbWxHRWVtdXV4S0JqTlFZWUxHTm9ydkZKMVhaY1NzeUFqS205TElJZjlWNUpWY3RPRW1ua0x5YzdiczJkcmVuaHF1SkRNb1lnTjJ2M2xhekRleXVjdTE4NWZLSURoTEVncUI5dkM5TDMydFhHQmd6WVlMODlqUkV0VnJEU09zcGZYV3NCb2wyaXVPcFhWcWxjS05EVk5jRnhQUm5SSEJ6VHBKbDBldlk2WG56cmhISE5VeWZRRHJsWTdUc3hETVlxOXAwbkNHSzFGVmZ5Y3NzeUhkeFI0ekFXcm52Tmt3NnliZ0d6SFNXbHJmVnIybXpjc09WZTdK'
+
+    AuthenticationToken:
+      type: object
+      readOnly: true
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          format: jwt
+          description: 'Should contain basic account information, within jwt payload. For example, the id, username & lock (used for session invalidation).'
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYzMTZhZGQwLTZhZmEtNGUzZi04OWU2LTE5M2E1YWMzNjIxOSIsInVzZXJuYW1lIjoiRGVtbzEyMyIsImxvY2siOiJ4SmU5eCJ9.3fRcEPln2v10hlGVQoIwXXPg3SyG9OpY5B2H3yECnJY'
+    ResetAuthentication:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    SetAuthentication:
+      type: object
+      writeOnly: true
+      required:
+        - password
+        - confirmPassword
+      properties:
+        password:
+          $ref: '#/components/schemas/PasswordType'
+        confirmPassword:
+          $ref: '#/components/schemas/PasswordType'
+
+    LoginAuthentication:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minimum: 3
+          maximum: 32
+          example: 'Demo123'
+        password:
+          $ref: '#/components/schemas/PasswordType'
+        2fa:
+          type: string
+          example: '012345'
+          nullable: false
+    Invalid2FA:
+      type: object
+      properties:
+        2faFailed:
+          type: boolean
+          description: '2FA was not valid for user'
+    InvalidField:
+      type: object
+      readOnly: true
+      properties:
+        field:
+          type: string
+          description: 'The offending field'
+        code:
+          type: integer
+          minimum: 0
+          default: 1
+          description: 'Numerical error code'
+        errorMessage:
+          type: string
+          example: 'Username too long'
+    InvalidBody:
+      type: object
+      readOnly: true
+      required:
+        - invalidJson
+      properties:
+        invalidJson:
+          type: boolean
+          default: false
+          description: 'Indicates the body can not be deserialised, due to it being invalid json'
+        invalidFields:
+          type: array
+          description: 'If present, the following fields are invalid for a specific reason.'
+          minItems: 1
+          uniqueItems: true
+          items:
+            - $ref: '#/components/schemas/InvalidField'
+    AuthenticationRequired:
+      type: object
+      readOnly: true
+      properties:
+        changedSinceLastLogin:
+          type: boolean
+          default: false
+          description: 'If jwt is invalid for some reason, will require re-authentication.'
+        message:
+          type: string
+          enum: ['Authentication Required']
+
+  requestBodies:
+    LoginRequest:
+      description: 'Login information for user'
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoginAuthentication'
+    ResetPasswordRequest:
+      description: 'Reset password for user, given their associated email address. Should never fail and always take the same amount of time.'
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResetAuthentication'
+    SetPasswordRequest:
+      description: 'Set the new password for user'
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SetAuthentication'
+
+  responses:
+    SuccessfulLogin:
+      description: 'Successfully logged in'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthenticationToken'
+
+    SuccessfulResetPassword:
+      description: 'Successfully reset password and logged in'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthenticationToken'
+
+    CredentialsNotValid:
+      description: 'Provided fields not valid for login. Could be 2FA is required for this user'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InvalidBody'
+
+    LoginNotSuccessful:
+      description: 'Login failed, username/password or 2fa did not match. Do not tell the user which field (or both) failed.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Invalid2FA'
+
+    #    Common
+    UnauthorisedRequestError:
+      description: 'Unauthorised request'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthenticationRequired'
+
+  securitySchemes:
+    BearerToken:
+      scheme: 'http'
+      type: 'bearer'
+      bearerFormat: 'jwt'
+
+security:
+  - BearerToken: []
